@@ -153,6 +153,7 @@ test("theme application uses one adaptive action and production rejects fixture 
   assert.match(frontend, /call<boolean>\("theme_runtime_ready"\)/);
   assert.match(frontend, /ready \? "apply_theme" : "restart_and_apply"/);
   assert.doesNotMatch(frontend, /已取消应用主题|没有启用本机主题端口，需要重启后应用主题/);
+  assert.doesNotMatch(frontend, /window\.confirm\(`下载并安装 Codex-Skin/);
   assert.match(styles, /grid-template-columns: 1fr repeat\(5, auto\)/);
   assert.match(rustApp, /async fn theme_runtime_ready\(\) -> bool/);
   assert.match(rustApp, /async fn rollback_theme\(\)[\s\S]*if !cdp::is_ready\(\)\.await[\s\S]*当前已经是默认主题/);

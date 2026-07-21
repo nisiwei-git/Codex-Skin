@@ -136,10 +136,6 @@ async function checkForAppUpdate(interactive: boolean): Promise<AppUpdate | null
 }
 
 async function installAppUpdate(update: AppUpdate): Promise<void> {
-  const size = update.size > 0 ? `（${(update.size / 1024 / 1024).toFixed(1)} MB）` : "";
-  const notes = update.notes.trim();
-  const detail = notes ? `\n\n${notes.slice(0, 500)}` : "";
-  if (!window.confirm(`下载并安装 Codex-Skin v${update.version}${size}？${detail}`)) return;
   setBusy(true, "正在下载客户端更新…");
   try {
     const result = await call<string>("install_app_update", { version: update.version });
