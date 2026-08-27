@@ -162,11 +162,16 @@ test("theme application uses one adaptive action and production rejects fixture 
   assert.match(rustApp, /async fn rollback_theme\(\)[\s\S]*if !cdp::is_ready\(\)\.await[\s\S]*当前已经是默认主题/);
   assert.match(rustApp, /for attempt in 0\.\.3[\s\S]*cdp::remove/);
   assert.match(await readFile(new URL("../src-tauri/src/cdp.rs", import.meta.url), "utf8"), /Client::builder\(\)[\s\S]*\.no_proxy\(\)/);
-  assert.match(await readFile(new URL("../src-tauri/src/cdp.rs", import.meta.url), "utf8"), /MainContentSurface[\s\S]*contenteditable/);
+  const cdp = await readFile(new URL("../src-tauri/src/cdp.rs", import.meta.url), "utf8");
+  assert.match(cdp, /compiler::MAIN_SURFACE_SELECTOR/);
+  assert.match(cdp, /store\.surfaceDecorated===true/);
+  assert.doesNotMatch(cdp, /MainContentSurface/);
   assert.match(dreamskin, /#\[cfg\(test\)\]\s+"codex-skin\.sample\.2026-01"/);
   assert.match(compiler, /fn font_stack\(value: &str\)/);
   assert.match(compiler, /"glass" => \[/);
   assert.match(compiler, /"WINDOW_ALPHA", if opaque_windows \{ "1" \} else \{ "\.06" \}/);
+  assert.match(compiler, /MAIN_SURFACE_SELECTOR[\s\S]*MainContentSurface/);
+  assert.match(compiler, /document\.querySelector\(cfg\.mainSurfaceSelector\)/);
   assert.match(repository, /fn validate_font_stack\(value: &str\)/);
   assert.match(repository, /"clear", "balanced", "immersive", "glass"/);
 });

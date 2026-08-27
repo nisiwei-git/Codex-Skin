@@ -99,7 +99,7 @@ async fn inject_inner(payload: &Payload) -> Result<InjectionOutcome> {
     );
     let expected_theme = serde_json::to_string(&payload.theme_id)?;
     let verification = format!(
-        "(() => {{ let active=false; try {{ active=localStorage.getItem({active_json})==={id_json}; }} catch {{}} const style=document.getElementById({}); const store=globalThis.__codexThemeStore; const root=document.documentElement; const actualTheme=root?.dataset?.codexThemeId||''; return active && style?.dataset.codexThemeStoreInjectionId==={id_json} && !!store && store.injectionId==={id_json} && root?.classList.contains('codex-theme-native') && actualTheme.length>0 && ({expected_theme}===null || actualTheme==={expected_theme}); }})()",
+        "(() => {{ let active=false; try {{ active=localStorage.getItem({active_json})==={id_json}; }} catch {{}} const style=document.getElementById({}); const store=globalThis.__codexThemeStore; const root=document.documentElement; const actualTheme=root?.dataset?.codexThemeId||''; return active && style?.dataset.codexThemeStoreInjectionId==={id_json} && !!store && store.injectionId==={id_json} && store.surfaceDecorated===true && root?.classList.contains('codex-theme-native') && actualTheme.length>0 && ({expected_theme}===null || actualTheme==={expected_theme}); }})()",
         serde_json::to_string(LIVE_STYLE_ID)?
     );
     let targets = targets().await?;
@@ -212,8 +212,11 @@ async fn inject_target(
     // Codex uses CSS modules for parts of the main surface, so the generated
     // suffix changes between releases. Keep the stable semantic fragments and
     // retain the legacy selectors for older desktop builds.
-    const PROBE: &str = "!!document.body && !!document.querySelector('.app-shell-left-panel, aside.app-shell-left-panel') && (!!document.querySelector('.main-surface, .browser-main-surface, main.main-surface') || !!document.querySelector('main[class*=\"MainContentSurface\"]')) && (!!document.querySelector('.composer-surface-chrome, [role=main]') || !!document.querySelector('[contenteditable=\"true\"][role=\"textbox\"]'))";
-    if !is_true(&evaluate(&mut socket, 99, PROBE).await?) {
+    let main_surface = serde_json::to_string(crate::compiler::MAIN_SURFACE_SELECTOR)?;
+    let probe = format!(
+        "!!document.body && !!document.querySelector('.app-shell-left-panel, aside.app-shell-left-panel') && !!document.querySelector({main_surface}) && (!!document.querySelector('.composer-surface-chrome, [role=main]') || !!document.querySelector('[contenteditable=\"true\"][role=\"textbox\"]'))"
+    );
+    if !is_true(&evaluate(&mut socket, 99, &probe).await?) {
         return Ok(false);
     }
     let previous = evaluate(&mut socket, 2, "(() => { try { return localStorage.getItem('__codexThemeStoreNewDocumentScript') || ''; } catch { return ''; } })()").await?;

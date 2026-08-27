@@ -13,6 +13,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+pub const MAIN_SURFACE_SELECTOR: &str =
+    "main.main-surface,.browser-main-surface,main[class*=\"MainContentSurface\"]";
+
 pub fn compile(theme_id: &str) -> Result<Payload> {
     let summary = catalog::find(theme_id)?;
     let raw = fs::read_to_string(&summary.manifest_path)?;
@@ -280,6 +283,7 @@ pub fn compile(theme_id: &str) -> Result<Payload> {
 
     let config = json!({
         "themeId": summary.id,
+        "mainSurfaceSelector": MAIN_SURFACE_SELECTOR,
         "home": home,
         "copy": copy,
         "background": background,
@@ -540,7 +544,7 @@ const JS_TEMPLATE: &str = r#"
   document.querySelectorAll('.codex-theme-sidebar-logo,#codex-theme-effect-ambient,#codex-theme-effect-overlay,#codex-theme-composer-accent').forEach(node=>node.remove());
   const cfg=__codexSkinConfig,root=document.documentElement,assetUrl=value=>value?.startsWith('url("')?value.slice(5,-2):'';
   root.classList.add('codex-theme-native');root.dataset.codexThemeId=cfg.themeId;
-  let sidebarLogo=null,scheduled=false,disposed=false,frame=null,lastRunning=false,ambientLayer=null,effectOverlay=null,composerAccent=null;
+  let sidebarLogo=null,scheduled=false,disposed=false,frame=null,lastRunning=false,ambientLayer=null,effectOverlay=null,composerAccent=null,surfaceDecorated=false;
   const decorated=['codex-theme-native-home','codex-theme-native-task','codex-theme-native-home-hero','codex-theme-native-home-copy','codex-theme-native-home-suggestions','codex-theme-native-home-utility','codex-theme-native-home-shell','codex-theme-native-task-shell','codex-theme-native-home-sidebar','codex-theme-native-task-sidebar'];
   const clearDecorations=()=>{for(const cls of decorated)for(const node of document.querySelectorAll(`.${cls}`))node.classList.remove(cls);};
   const prune=(selector,keep)=>{for(const node of document.querySelectorAll(selector))if(node!==keep)node.remove();};
@@ -554,13 +558,13 @@ const JS_TEMPLATE: &str = r#"
   const triggerEffects=type=>{if(triggers(cfg.effects?.overlay,type))restart(effectOverlay);if(triggers(cfg.effects?.composerAccent,type)){positionComposerAccent();restart(composerAccent);}else if(type==='message-send')composerAccent?.classList.remove('is-active');};
   const ensureEffects=()=>{prune('#codex-theme-effect-ambient',ambientLayer);prune('#codex-theme-effect-overlay',effectOverlay);prune('#codex-theme-composer-accent',composerAccent);const effects=cfg.effects||{},opacity=effects.intensity==='subtle'?'.28':effects.intensity==='vivid'?'.82':'.52';root.style.setProperty('--codex-effect-opacity',opacity);if(!ambientLayer&&effects.ambient&&effects.ambient!=='none'){ambientLayer=document.createElement('div');ambientLayer.id='codex-theme-effect-ambient';ambientLayer.dataset.kind=effects.ambient;ambientLayer.setAttribute('aria-hidden','true');for(let index=0;index<20;index++){const drop=document.createElement('i');drop.style.setProperty('--effect-index',String(index));ambientLayer.append(drop);}if(effects.ambient==='storm')for(let index=0;index<10;index++){const particle=document.createElement('b');particle.style.setProperty('--effect-index',String(index));ambientLayer.append(particle);}document.body.append(ambientLayer);}if(!effectOverlay&&effects.overlay?.image){effectOverlay=document.createElement('img');effectOverlay.id='codex-theme-effect-overlay';effectOverlay.alt='';effectOverlay.src=assetUrl(effects.overlay.image);effectOverlay.style.setProperty('--codex-effect-x',`${effects.overlay.position?.x??72}%`);effectOverlay.style.setProperty('--codex-effect-y',`${effects.overlay.position?.y??28}%`);effectOverlay.style.setProperty('--codex-effect-width',`${effects.overlay.widthPercent??42}%`);document.body.append(effectOverlay);}if(!composerAccent&&effects.composerAccent?.image){composerAccent=document.createElement('img');composerAccent.id='codex-theme-composer-accent';composerAccent.alt='';composerAccent.src=assetUrl(effects.composerAccent.image);composerAccent.style.setProperty('--codex-effect-composer-width',`${effects.composerAccent.widthPx??120}px`);document.body.append(composerAccent);positionComposerAccent();}};
   const runningTask=()=>Boolean(document.querySelector('[data-app-action-sidebar-thread-running="true"],[data-app-action-sidebar-thread-is-running="true"],[data-thread-running="true"],[data-is-running="true"],[aria-label*="正在运行"]'));
-  const update=()=>{frame=null;scheduled=false;if(disposed)return;clearDecorations();ensureEffects();const shell=document.querySelector('main.main-surface,.browser-main-surface');if(!shell){applyCopy();return;}const home=document.querySelector('[role="main"]:has([data-testid="home-icon"])');for(const route of document.querySelectorAll('[role="main"]'))route.classList.add(route===home?'codex-theme-native-home':'codex-theme-native-task');shell.classList.add(home?'codex-theme-native-home-shell':'codex-theme-native-task-shell');document.querySelector('.app-shell-left-panel')?.classList.add(home?'codex-theme-native-home-sidebar':'codex-theme-native-task-sidebar');if(home){const icon=home.querySelector('[data-testid="home-icon"]'),copy=icon?.parentElement,hero=copy?.parentElement?.parentElement;if(hero)hero.classList.add('codex-theme-native-home-hero');if(copy)copy.classList.add('codex-theme-native-home-copy');for(const candidate of home.querySelectorAll('[class*="home-suggestions"],[class*="homeSuggestions"]'))candidate.classList.add('codex-theme-native-home-suggestions');for(const area of home.querySelectorAll('[data-composer-utility-bar-scroll-area]'))area.parentElement?.classList.add('codex-theme-native-home-utility');}const running=runningTask();if(running&&!lastRunning)triggerEffects('task-start');lastRunning=running;positionComposerAccent();applyCopy();ensureSidebarLogo();updateBackgroundFit();};
+  const update=()=>{frame=null;scheduled=false;if(disposed)return;clearDecorations();ensureEffects();surfaceDecorated=false;const shell=document.querySelector(cfg.mainSurfaceSelector);if(!shell){applyCopy();return;}surfaceDecorated=true;const home=document.querySelector('[role="main"]:has([data-testid="home-icon"])');for(const route of document.querySelectorAll('[role="main"]'))route.classList.add(route===home?'codex-theme-native-home':'codex-theme-native-task');shell.classList.add(home?'codex-theme-native-home-shell':'codex-theme-native-task-shell');document.querySelector('.app-shell-left-panel')?.classList.add(home?'codex-theme-native-home-sidebar':'codex-theme-native-task-sidebar');if(home){const icon=home.querySelector('[data-testid="home-icon"]'),copy=icon?.parentElement,hero=copy?.parentElement?.parentElement;if(hero)hero.classList.add('codex-theme-native-home-hero');if(copy)copy.classList.add('codex-theme-native-home-copy');for(const candidate of home.querySelectorAll('[class*="home-suggestions"],[class*="homeSuggestions"]'))candidate.classList.add('codex-theme-native-home-suggestions');for(const area of home.querySelectorAll('[data-composer-utility-bar-scroll-area]'))area.parentElement?.classList.add('codex-theme-native-home-utility');}const running=runningTask();if(running&&!lastRunning)triggerEffects('task-start');lastRunning=running;positionComposerAccent();applyCopy();ensureSidebarLogo();updateBackgroundFit();};
   const schedule=()=>{if(disposed||scheduled)return;scheduled=true;frame=requestAnimationFrame(update);};
   const observer=new MutationObserver(schedule);observer.observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-label','data-app-action-sidebar-thread-running','data-app-action-sidebar-thread-is-running','data-thread-running','data-is-running']});
   const resizeHandler=()=>{updateBackgroundFit();schedule();};window.addEventListener('resize',resizeHandler);
   const sendHandler=event=>{if(!(event.target instanceof Element))return;const byClick=event.type==='click'&&event.target.closest('button[type="submit"],[data-testid*="send"]'),byKey=event.type==='keydown'&&event.key==='Enter'&&!event.shiftKey&&event.target.closest('textarea,input,[contenteditable="true"]');if(byClick||byKey)triggerEffects('message-send');};document.addEventListener('click',sendHandler,true);document.addEventListener('keydown',sendHandler,true);
   const backgroundImage=cfg.background?new Image():null;if(backgroundImage){backgroundImage.addEventListener('load',updateBackgroundFit);backgroundImage.src=assetUrl(cfg.background);}
-  globalThis.__codexThemeStore={observer,resizeHandler,backgroundImage,injectionId:null,dispose(){disposed=true;if(frame!==null)cancelAnimationFrame(frame);frame=null;scheduled=false;observer.disconnect();window.removeEventListener('resize',resizeHandler);document.removeEventListener('click',sendHandler,true);document.removeEventListener('keydown',sendHandler,true);clearDecorations();document.querySelectorAll('.codex-theme-sidebar-logo,#codex-theme-effect-ambient,#codex-theme-effect-overlay,#codex-theme-composer-accent').forEach(node=>node.remove());sidebarLogo=ambientLayer=effectOverlay=composerAccent=null;root.classList.remove('codex-theme-native');root.removeAttribute('data-codex-theme-id');root.style.removeProperty('--codex-theme-background-size');root.style.removeProperty('--codex-effect-opacity');}};
+  globalThis.__codexThemeStore={observer,resizeHandler,backgroundImage,injectionId:null,get surfaceDecorated(){return surfaceDecorated;},dispose(){disposed=true;if(frame!==null)cancelAnimationFrame(frame);frame=null;scheduled=false;observer.disconnect();window.removeEventListener('resize',resizeHandler);document.removeEventListener('click',sendHandler,true);document.removeEventListener('keydown',sendHandler,true);clearDecorations();document.querySelectorAll('.codex-theme-sidebar-logo,#codex-theme-effect-ambient,#codex-theme-effect-overlay,#codex-theme-composer-accent').forEach(node=>node.remove());sidebarLogo=ambientLayer=effectOverlay=composerAccent=null;root.classList.remove('codex-theme-native');root.removeAttribute('data-codex-theme-id');root.style.removeProperty('--codex-theme-background-size');root.style.removeProperty('--codex-effect-opacity');}};
   update();
   return true;
 })();
@@ -568,7 +572,7 @@ const JS_TEMPLATE: &str = r#"
 
 #[cfg(test)]
 mod tests {
-    use super::{JS_TEMPLATE, font_stack};
+    use super::{JS_TEMPLATE, MAIN_SURFACE_SELECTOR, font_stack};
 
     #[test]
     fn rejects_css_in_font_stacks() {
@@ -582,6 +586,10 @@ mod tests {
 
     #[test]
     fn native_renderer_decorates_codex_routes_without_a_covering_home_node() {
+        assert!(MAIN_SURFACE_SELECTOR.contains("main.main-surface"));
+        assert!(MAIN_SURFACE_SELECTOR.contains("MainContentSurface"));
+        assert!(JS_TEMPLATE.contains("document.querySelector(cfg.mainSurfaceSelector)"));
+        assert!(JS_TEMPLATE.contains("get surfaceDecorated(){return surfaceDecorated;}"));
         assert!(JS_TEMPLATE.contains("[role=\"main\"]:has([data-testid=\"home-icon\"])"));
         assert!(JS_TEMPLATE.contains("codex-theme-native-home"));
         assert!(JS_TEMPLATE.contains("codex-theme-native-task"));
