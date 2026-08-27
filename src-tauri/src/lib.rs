@@ -143,10 +143,23 @@ async fn theme_runtime_ready() -> bool {
 async fn apply_theme(theme_id: String) -> error::Result<String> {
     repository::ensure_theme(&theme_id).await?;
     let payload = compiler::compile(&theme_id)?;
-    if cdp::inject(&payload, std::time::Duration::from_secs(15)).await? == 0 {
-        return Err(error::AppError::Message(
-            "Codex 未以主题模式启动，请使用“应用并重启 Codex”。".into(),
-        ));
+    let mut outcome = cdp::InjectionOutcome::default();
+    for attempt in 0..3 {
+        outcome = cdp::inject(&payload, std::time::Duration::from_secs(15)).await?;
+        if outcome.applied > 0 {
+            break;
+        }
+        if attempt < 2 {
+            tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+        }
+    }
+    if outcome.applied == 0 {
+        let message = if outcome.candidates == 0 {
+            "已连接 Codex 主题端口，但主窗口尚未完成初始化，请稍后重试。"
+        } else {
+            "已连接 Codex 主题端口，但当前 Codex 页面结构暂不受支持，请更新 Codex-Skin。"
+        };
+        return Err(error::AppError::Message(message.into()));
     }
     Ok(format!("{} 已应用", catalog::find(&theme_id)?.name))
 }

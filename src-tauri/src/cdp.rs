@@ -18,6 +18,12 @@ pub struct Payload {
     pub theme_id: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct InjectionOutcome {
+    pub applied: usize,
+    pub candidates: usize,
+}
+
 type Socket = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 
 pub async fn is_ready() -> bool {
@@ -74,13 +80,13 @@ pub fn allowed_socket(value: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
 }
 
-pub async fn inject(payload: &Payload, timeout: std::time::Duration) -> Result<usize> {
+pub async fn inject(payload: &Payload, timeout: std::time::Duration) -> Result<InjectionOutcome> {
     tokio::time::timeout(timeout, inject_inner(payload))
         .await
         .map_err(|_| AppError::Message("CDP 注入超时。".into()))?
 }
 
-async fn inject_inner(payload: &Payload) -> Result<usize> {
+async fn inject_inner(payload: &Payload) -> Result<InjectionOutcome> {
     let injection_id = uuid::Uuid::new_v4().simple().to_string();
     let theme = theme_expression(payload, &injection_id);
     let id_json = serde_json::to_string(&injection_id)?;
@@ -96,16 +102,21 @@ async fn inject_inner(payload: &Payload) -> Result<usize> {
         "(() => {{ let active=false; try {{ active=localStorage.getItem({active_json})==={id_json}; }} catch {{}} const style=document.getElementById({}); const store=globalThis.__codexThemeStore; const root=document.documentElement; const actualTheme=root?.dataset?.codexThemeId||''; return active && style?.dataset.codexThemeStoreInjectionId==={id_json} && !!store && store.injectionId==={id_json} && root?.classList.contains('codex-theme-native') && actualTheme.length>0 && ({expected_theme}===null || actualTheme==={expected_theme}); }})()",
         serde_json::to_string(LIVE_STYLE_ID)?
     );
-    let mut successes = 0;
-    for target in targets().await? {
+    let targets = targets().await?;
+    let candidates = targets.len();
+    let mut applied = 0;
+    for target in targets {
         if inject_target(&target, &activation, &new_document, &verification)
             .await
             .unwrap_or(false)
         {
-            successes += 1;
+            applied += 1;
         }
     }
-    Ok(successes)
+    Ok(InjectionOutcome {
+        applied,
+        candidates,
+    })
 }
 
 pub async fn remove(timeout: std::time::Duration) -> Result<usize> {
@@ -151,13 +162,16 @@ async fn targets() -> Result<Vec<String>> {
         }
         let url = value.get("url").and_then(Value::as_str).unwrap_or("");
         let title = value.get("title").and_then(Value::as_str).unwrap_or("");
-        let app_root = url.to_ascii_lowercase().starts_with("app:///");
+        let app_root = is_main_codex_page(url, title);
+        let app_page = url.to_ascii_lowercase().starts_with("app:");
         let codex = url.to_ascii_lowercase().contains("codex")
             || title.to_ascii_lowercase().contains("codex");
-        let priority = match (app_root, codex) {
-            (true, true) => 0,
-            (true, false) => 1,
-            (false, true) => 2,
+        let priority = match (app_root, app_page, codex) {
+            (true, _, _) => 0,
+            // Auxiliary app pages such as avatar-overlay must never receive a
+            // persistent theme script even though their title is also Codex.
+            (false, true, _) => continue,
+            (false, false, true) => 2,
             _ => continue,
         };
         if let Some(socket) = value
@@ -173,6 +187,16 @@ async fn targets() -> Result<Vec<String>> {
     Ok(result.into_iter().map(|item| item.1).collect())
 }
 
+fn is_main_codex_page(url: &str, title: &str) -> bool {
+    let Ok(url) = Url::parse(url) else {
+        return false;
+    };
+    url.scheme() == "app"
+        && url.path().eq_ignore_ascii_case("/index.html")
+        && url.query().is_none()
+        && title.eq_ignore_ascii_case("codex")
+}
+
 async fn inject_target(
     url: &str,
     activation: &str,
@@ -185,7 +209,10 @@ async fn inject_target(
     if !successful(&send(&mut socket, 1, "Page.enable", json!({})).await?) {
         return Ok(false);
     }
-    const PROBE: &str = "!!document.querySelector('.main-surface, .browser-main-surface, main.main-surface') && !!document.querySelector('.app-shell-left-panel, aside.app-shell-left-panel') && (!!document.querySelector('.composer-surface-chrome') || !!document.querySelector('[role=main]'))";
+    // Codex uses CSS modules for parts of the main surface, so the generated
+    // suffix changes between releases. Keep the stable semantic fragments and
+    // retain the legacy selectors for older desktop builds.
+    const PROBE: &str = "!!document.body && !!document.querySelector('.app-shell-left-panel, aside.app-shell-left-panel') && (!!document.querySelector('.main-surface, .browser-main-surface, main.main-surface') || !!document.querySelector('main[class*=\"MainContentSurface\"]')) && (!!document.querySelector('.composer-surface-chrome, [role=main]') || !!document.querySelector('[contenteditable=\"true\"][role=\"textbox\"]'))";
     if !is_true(&evaluate(&mut socket, 99, PROBE).await?) {
         return Ok(false);
     }
@@ -336,5 +363,16 @@ mod tests {
             "ws://user@127.0.0.1:9229/devtools/page/abc"
         ));
         assert!(!allowed_socket("ws://127.0.0.1:9229/devtools/page/abc?x=1"));
+    }
+
+    #[test]
+    fn identifies_only_the_main_codex_app_page() {
+        assert!(is_main_codex_page("app://-/index.html", "Codex"));
+        assert!(is_main_codex_page("app:///index.html", "codex"));
+        assert!(!is_main_codex_page(
+            "app://-/index.html?initialRoute=%2Favatar-overlay",
+            "Codex"
+        ));
+        assert!(!is_main_codex_page("https://chatgpt.com/", "Codex"));
     }
 }
