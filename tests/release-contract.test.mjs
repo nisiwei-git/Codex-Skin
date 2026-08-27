@@ -153,14 +153,22 @@ test("theme application uses one adaptive action and production rejects fixture 
   assert.match(frontend, /call<boolean>\("theme_runtime_ready"\)/);
   assert.match(frontend, /ready \? "apply_theme" : "restart_and_apply"/);
   assert.doesNotMatch(frontend, /已取消应用主题|没有启用本机主题端口，需要重启后应用主题/);
+  assert.doesNotMatch(frontend, /window\.confirm\(`下载并安装 Codex-Skin/);
   assert.match(styles, /grid-template-columns: 1fr repeat\(5, auto\)/);
   assert.match(rustApp, /async fn theme_runtime_ready\(\) -> bool/);
+  assert.match(rustApp, /async fn apply_theme[\s\S]*for attempt in 0\.\.3/);
+  assert.match(rustApp, /outcome\.candidates == 0/);
+  assert.match(rustApp, /当前 Codex 页面结构暂不受支持/);
   assert.match(rustApp, /async fn rollback_theme\(\)[\s\S]*if !cdp::is_ready\(\)\.await[\s\S]*当前已经是默认主题/);
   assert.match(rustApp, /for attempt in 0\.\.3[\s\S]*cdp::remove/);
   assert.match(await readFile(new URL("../src-tauri/src/cdp.rs", import.meta.url), "utf8"), /Client::builder\(\)[\s\S]*\.no_proxy\(\)/);
+  assert.match(await readFile(new URL("../src-tauri/src/cdp.rs", import.meta.url), "utf8"), /MainContentSurface[\s\S]*contenteditable/);
   assert.match(dreamskin, /#\[cfg\(test\)\]\s+"codex-skin\.sample\.2026-01"/);
   assert.match(compiler, /fn font_stack\(value: &str\)/);
+  assert.match(compiler, /"glass" => \[/);
+  assert.match(compiler, /"WINDOW_ALPHA", if opaque_windows \{ "1" \} else \{ "\.06" \}/);
   assert.match(repository, /fn validate_font_stack\(value: &str\)/);
+  assert.match(repository, /"clear", "balanced", "immersive", "glass"/);
 });
 
 test("desktop catalog uses conditional sync and on-demand persistent resources", async () => {

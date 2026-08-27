@@ -44,9 +44,13 @@ pub async fn restart_and_inject(payload: &Payload, timeout: Duration) -> Result<
                 .min(Duration::from_secs(10));
             if remaining > Duration::ZERO {
                 match cdp::inject(payload, remaining).await {
-                    Ok(count) if count > 0 => return Ok(()),
-                    Ok(_) => {
-                        last_injection_error = Some("Codex 窗口尚未完成初始化。".to_owned());
+                    Ok(outcome) if outcome.applied > 0 => return Ok(()),
+                    Ok(outcome) => {
+                        last_injection_error = Some(if outcome.candidates == 0 {
+                            "Codex 主窗口尚未完成初始化。".to_owned()
+                        } else {
+                            "当前 Codex 页面结构暂不受支持，请更新 Codex-Skin。".to_owned()
+                        });
                     }
                     Err(error) => last_injection_error = Some(error.to_string()),
                 }
