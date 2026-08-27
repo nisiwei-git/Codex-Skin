@@ -206,19 +206,12 @@ pub fn compile(theme_id: &str) -> Result<Payload> {
         .get("visualIntensity")
         .and_then(Value::as_str)
         .unwrap_or("balanced");
-    let opaque_windows = theme
-        .get("opaqueWindows")
-        .and_then(Value::as_bool)
-        .unwrap_or(true);
     let intensity = match visual_intensity {
         "clear" => [
             ".78", ".58", ".42", ".90", ".42", ".88", ".34", ".96", ".94", ".94", ".78",
         ],
         "immersive" => [
             ".34", ".16", ".08", ".56", ".12", ".54", ".08", ".76", ".78", ".74", ".46",
-        ],
-        "glass" => [
-            ".18", ".10", ".04", ".24", ".08", ".22", ".04", ".30", ".22", ".24", ".10",
         ],
         _ => [
             ".58", ".28", ".16", ".78", ".25", ".76", ".18", ".86", ".82", ".88", ".62",
@@ -268,7 +261,6 @@ pub fn compile(theme_id: &str) -> Result<Payload> {
         ("TASK_ALPHA", intensity[8]),
         ("SIDEBAR_STRONG", intensity[9]),
         ("SIDEBAR_MID", intensity[10]),
-        ("WINDOW_ALPHA", if opaque_windows { "1" } else { ".06" }),
     ] {
         css = css.replace(&format!("{{{{{key}}}}}"), value);
     }
@@ -491,8 +483,7 @@ html[data-codex-window-type="electron"] :is([role="dialog"],[role="menu"],[role=
 html[data-codex-window-type="electron"] [role="tooltip"] { color:{{INK}}!important; background:{{ELEVATED}}!important; border:1px solid {{BORDER}}!important; }
 html[data-codex-window-type="electron"] [data-content-search-unit-key$=":assistant"],html[data-codex-window-type="electron"] [data-message-author-role="assistant"] { color:{{INK}}!important; }
 html[data-codex-window-type="electron"] [data-user-message-bubble="true"] { background:rgb(from {{ACCENT}} r g b / .15)!important; border:1px solid {{BORDER}}!important; }
-html[data-codex-window-type="electron"].codex-theme-native { background:rgb(from {{UNDER}} r g b / {{WINDOW_ALPHA}})!important; }
-html[data-codex-window-type="electron"].codex-theme-native body { background-color:rgb(from {{UNDER}} r g b / {{WINDOW_ALPHA}})!important; background-image:linear-gradient(rgb(from {{UNDER}} r g b / calc(1 - {{BACKGROUND_OPACITY}})),rgb(from {{UNDER}} r g b / calc(1 - {{BACKGROUND_OPACITY}}))),{{BACKGROUND}}!important; background-repeat:no-repeat,no-repeat!important; background-position:center,{{BACKGROUND_POSITION}}!important; background-size:cover,var(--codex-theme-background-size,cover)!important; background-attachment:fixed,fixed!important; }
+html[data-codex-window-type="electron"].codex-theme-native body { background-color:{{UNDER}}!important; background-image:linear-gradient(rgb(from {{UNDER}} r g b / calc(1 - {{BACKGROUND_OPACITY}})),rgb(from {{UNDER}} r g b / calc(1 - {{BACKGROUND_OPACITY}}))),{{BACKGROUND}}!important; background-repeat:no-repeat,no-repeat!important; background-position:center,{{BACKGROUND_POSITION}}!important; background-size:cover,var(--codex-theme-background-size,cover)!important; background-attachment:fixed,fixed!important; }
 .codex-theme-sidebar-logo { position:absolute; top:10px; left:16px; z-index:20; width:min(112px,55%); height:30px; padding-right:6px; object-fit:contain; object-position:left center; pointer-events:none; background:transparent; filter:drop-shadow(0 1px 8px rgb(from {{SURFACE}} r g b / .78)); }
 html[data-codex-window-type="electron"] main.codex-theme-native-home-shell { background:linear-gradient(90deg,rgb(from {{SURFACE}} r g b / {{HOME_SHELL_STRONG}}),rgb(from {{SURFACE}} r g b / {{HOME_SHELL_MID}}) 60%,rgb(from {{SURFACE}} r g b / {{HOME_SHELL_WEAK}}))!important; border:0!important; box-shadow:none!important; }
 html[data-codex-window-type="electron"] main.codex-theme-native-task-shell { background:linear-gradient(rgb(from {{SURFACE}} r g b / {{TASK_ALPHA}}),rgb(from {{SURFACE}} r g b / calc({{TASK_ALPHA}} + .04)))!important; }

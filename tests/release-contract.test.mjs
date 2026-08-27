@@ -165,10 +165,7 @@ test("theme application uses one adaptive action and production rejects fixture 
   assert.match(await readFile(new URL("../src-tauri/src/cdp.rs", import.meta.url), "utf8"), /MainContentSurface[\s\S]*contenteditable/);
   assert.match(dreamskin, /#\[cfg\(test\)\]\s+"codex-skin\.sample\.2026-01"/);
   assert.match(compiler, /fn font_stack\(value: &str\)/);
-  assert.match(compiler, /"glass" => \[/);
-  assert.match(compiler, /"WINDOW_ALPHA", if opaque_windows \{ "1" \} else \{ "\.06" \}/);
   assert.match(repository, /fn validate_font_stack\(value: &str\)/);
-  assert.match(repository, /"clear", "balanced", "immersive", "glass"/);
 });
 
 test("desktop catalog uses conditional sync and on-demand persistent resources", async () => {

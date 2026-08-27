@@ -756,7 +756,7 @@ fn validate_theme(path: &Path, expected_id: &str, repository: &Path) -> Result<(
         let value = value
             .as_str()
             .ok_or_else(|| AppError::Message("视觉强度必须是字符串。".into()))?;
-        if !["clear", "balanced", "immersive", "glass"].contains(&value) {
+        if !["clear", "balanced", "immersive"].contains(&value) {
             return Err(AppError::Message("视觉强度无效。".into()));
         }
     }
